@@ -54,6 +54,26 @@ String.prototype.toHH_MM = function () {
         minutes = '0' + minutes;
     }
 
+
+    var time = hours + ':' + minutes;
+    return time;
+}
+String.prototype.toRoundedHH_MM = function () {
+    // don't forget the second param
+    var secNum = parseInt(this, 10);
+    var hours = Math.floor(secNum / 3600);
+    var minutes = Math.floor((secNum - (hours * 3600)) / 60);
+
+    minutes = (Math.round(minutes/15) * 15) % 60;
+
+    if (hours < 10) {
+        hours = '0' + hours;
+    }
+    if (minutes < 10) {
+        minutes = '0' + minutes;
+    }
+
+
     var time = hours + ':' + minutes;
     return time;
 }
@@ -124,7 +144,7 @@ function submitEntries() {
         if (!log.submit) return;
 
         var body = JSON.stringify({
-            timeSpent: log.timeSpent,
+            timeSpent: log.timeSpentRounded,
             comment: log.comment,
             started: log.started
         });
@@ -197,6 +217,8 @@ function fetchEntries() {
                     submit: (togglTime > 0),
                     timeSpentInt: togglTime,
                     timeSpent: togglTime > 0 ? togglTime.toString().toHHMM() : 'still running...',
+                    timeSpentIntRounded: Math.round(togglTime/900) * 900,
+                    timeSpentRounded: togglTime > 0 ? (Math.round(togglTime/900) * 900).toString().toHHMM() : 'still running...',
                     comment: config.comment,
                     started: dateString,
                     dateKey: dateKey,
@@ -264,7 +286,7 @@ function renderList() {
 
         dom += '<td>' + log.description.substr(log.issue.length).limit(35) + '</td>';
         dom += '<td>' + log.started.toDDMM() + '</td>';
-        dom += '<td>' + (log.timeSpentInt > 0 ? log.timeSpentInt.toString().toHH_MM() : 'still running...') + '</td>';
+        dom += '<td>' + (log.timeSpentInt > 0 ? log.timeSpentIntRounded.toString().toHH_MM() + ' (' + log.timeSpentInt.toString().toHH_MM() + ')' : 'still running...') + '</td>';
         dom += '<td  id="result-' + log.id + '"></td>';
         dom += '</tr>';
 

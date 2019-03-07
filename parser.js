@@ -58,30 +58,11 @@ String.prototype.toHH_MM = function () {
     var time = hours + ':' + minutes;
     return time;
 }
-String.prototype.toRoundedHH_MM = function () {
-    // don't forget the second param
-    var secNum = parseInt(this, 10);
-    var hours = Math.floor(secNum / 3600);
-    var minutes = Math.floor((secNum - (hours * 3600)) / 60);
-
-    minutes = (Math.round(minutes/15) * 15) % 60;
-
-    if (hours < 10) {
-        hours = '0' + hours;
-    }
-    if (minutes < 10) {
-        minutes = '0' + minutes;
-    }
-
-
-    var time = hours + ':' + minutes;
-    return time;
-}
 String.prototype.toDDMM = function () {
     // don't forget the second param
     var monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     var d = new Date(this);
-    return monthNames[d.getMonth()] + ' ' + d.getDate();
+    return monthNames[d.getMonth()] + ' ' + d.getDate() + ' ' + d.getUTCHours() + ':' + d.getMinutes();
     // return d.getDate() + '.' + (d.getMonth() + 1) + '.';
 }
 
@@ -192,10 +173,13 @@ function fetchEntries() {
             entry.description = entry.description || 'no-description';
             var issue = entry.description.split(' ')[0];
             var togglTime = entry.duration;
-            console.log(togglTime);
 
-            var dateString = toJiraWhateverDateTime(entry.start);
-            var dateKey = createDateKey(entry.start);
+            var entry_start = new Date(entry.start);
+            entry_start.setHours(entry_start.getHours()+2);
+
+
+            var dateString = toJiraWhateverDateTime(entry_start);
+            var dateKey = createDateKey(entry_start);
 
             var log = _.find(logs, function (log) {
                 if (config.mergeEntriesBy === 'issue-and-date') {
@@ -285,7 +269,7 @@ function renderList() {
         dom += '<td><a href="' + url + '" target="_blank">' + log.issue + '</a></td>';
 
         dom += '<td>' + log.description.substr(log.issue.length).limit(35) + '</td>';
-        dom += '<td>' + log.started.toDDMM() + '</td>';
+        dom += '<td>' + log.started.toDDMM()  + '</td>';
         dom += '<td>' + (log.timeSpentInt > 0 ? log.timeSpentIntRounded.toString().toHH_MM() + ' (' + log.timeSpentInt.toString().toHH_MM() + ')' : 'still running...') + '</td>';
         dom += '<td  id="result-' + log.id + '"></td>';
         dom += '</tr>';

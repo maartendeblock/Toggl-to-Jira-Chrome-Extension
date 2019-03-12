@@ -175,7 +175,21 @@ function fetchEntries() {
             var togglTime = entry.duration;
 
             var entry_start = new Date(entry.start);
-            entry_start.setHours(entry_start.getHours()+2);
+            entry_start.setHours(entry_start.getHours()+1);
+            entry_start.setSeconds(0);
+            var minutes = entry_start.getMinutes();
+            if(minutes < 7) {
+                entry_start.setMinutes(0);
+            } else if(minutes < 22){
+                entry_start.setMinutes(15);
+            } else if(minutes < 37){
+                entry_start.setMinutes(30);
+            } else if(minutes < 52){
+                entry_start.setMinutes(45);
+            } else {
+                entry_start.setMinutes(0);
+                entry_start.setHours(entry_start.getHours()+1);
+            }
 
 
             var dateString = toJiraWhateverDateTime(entry_start);

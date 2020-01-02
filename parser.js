@@ -175,7 +175,8 @@ function fetchEntries() {
             var togglTime = entry.duration;
 
             var entry_start = new Date(entry.start);
-            entry_start.setHours(entry_start.getHours()+1);
+			//FIXME: timezone derp.
+            entry_start.setHours(entry_start.getHours()+2);
             entry_start.setSeconds(0);
             var minutes = entry_start.getMinutes();
             if(minutes < 7) {

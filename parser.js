@@ -1,6 +1,9 @@
 var logs = [];
 var config = {};
 
+var myEmailAddress = null;
+var myDisplayName = null;
+
 String.prototype.limit = function (limit) {
     return this.length > limit ? this.substr(0, limit) + '...' : this;
 }
@@ -31,9 +34,14 @@ String.prototype.toHHMM = function () {
     var hours = Math.floor(secNum / 3600);
     var minutes = Math.floor((secNum - (hours * 3600)) / 60);
 
+    // set minimum as 1 minute
+    if (hours + minutes === 0) minutes = 1;
+
+    // pad zero
     if (hours < 10) {
         hours = '0' + hours;
     }
+    // pad zero
     if (minutes < 10) {
         minutes = '0' + minutes;
     }
@@ -54,7 +62,6 @@ String.prototype.toHH_MM = function () {
         minutes = '0' + minutes;
     }
 
-
     var time = hours + ':' + minutes;
     return time;
 }
@@ -62,7 +69,7 @@ String.prototype.toDDMM = function () {
     // don't forget the second param
     var monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     var d = new Date(this);
-    return monthNames[d.getMonth()] + ' ' + d.getDate() + ' ' + d.getUTCHours() + ':' + d.getMinutes();
+    return monthNames[d.getMonth()] + ' ' + d.getDate();
     // return d.getDate() + '.' + (d.getMonth() + 1) + '.';
 }
 
@@ -114,33 +121,52 @@ $(document).ready(function () {
         $('#end-picker').on('change', fetchEntries);
         $('#submit').on('click', submitEntries);
 
+        getMyData()
         fetchEntries();
     });
 });
 
+
+
+function getMyData() {
+    $.get(config.url + '/rest/api/2/myself',
+        function success(response) {
+            myEmailAddress = response.emailAddress;
+            myDisplayName = response.displayName;
+
+            $('#myDisplayName').html(myDisplayName + ' (' + myEmailAddress + ')')
+        });
+}
+
 function submitEntries() {
 
     // log time for each jira ticket
+    var timeout = 500;
     logs.forEach(function (log) {
         if (!log.submit) return;
+        $('#result-' + log.id).text('Pending...').addClass('info');
+        setTimeout(() => {
+            var body = JSON.stringify({
+                timeSpent: log.timeSpentRounded,
+                comment: $("#comment-" + log.id).val() || '',
+                started: log.started
+            });
 
-        var body = JSON.stringify({
-            timeSpent: log.timeSpentRounded,
-            comment: log.comment,
-            started: log.started
-        });
+            $.post(config.url + '/rest/api/latest/issue/' + log.issue + '/worklog', body,
+                function success(response) {
+                    console.log('success', response);
+                    $('#result-' + log.id).text('OK').addClass('success').removeClass('info');
+                    $('#input-' + log.id).removeAttr('checked').attr('disabled', 'disabled');
+                    $("#comment-" + log.id).attr('disabled', 'disabled');
 
-        $.post(config.url + '/rest/api/latest/issue/' + log.issue + '/worklog', body,
-            function success(response) {
-                console.log('success', response);
-                $('#result-' + log.id).text('OK').addClass('success');
-                $('#input-' + log.id).removeAttr('checked');
-            }).fail(function error(error, message) {
-                console.log(error, message);
-                var e = error.responseText || JSON.stringify(error);
-                console.log(e);
-                $('p#error').text(e + "\n" + message).addClass('error');
-            })
+                }).fail(function error(error, message) {
+                    console.log(error, message);
+                    var e = error.responseText || JSON.stringify(error);
+                    console.log(e);
+                    $('p#error').text(e + "\n" + message).addClass('error');
+                })
+        }, timeout);
+        timeout += 500;
     });
 }
 
@@ -284,9 +310,15 @@ function renderList() {
         dom += '<td><a href="' + url + '" target="_blank">' + log.issue + '</a></td>';
 
         dom += '<td>' + log.description.substr(log.issue.length).limit(35) + '</td>';
-        dom += '<td>' + log.started.toDDMM()  + '</td>';
-        dom += '<td>' + (log.timeSpentInt > 0 ? log.timeSpentIntRounded.toString().toHH_MM() + ' (' + log.timeSpentInt.toString().toHH_MM() + ')' : 'still running...') + '</td>';
-        dom += '<td  id="result-' + log.id + '"></td>';
+        dom += '<td>' + log.started.toDDMM() + '</td>';
+
+        if (log.timeSpentInt > 0) {
+            dom += '<td>' + log.timeSpentIntRounded.toString().toHH_MM() + '</td>';
+            dom += '<td><input id="comment-' + log.id + '" type="text" value="' + log.comment + '" /></td>';
+            dom += '<td  id="result-' + log.id + '"></td>';
+        } else {
+            dom += '<td colspan="3" style="text-align:center;">still running...</td>'
+        }
         dom += '</tr>';
 
         totalTime += (log.timeSpentInt > 0 && log.timeSpentInt) || 0;
@@ -308,6 +340,8 @@ function renderList() {
                 var worklogs = response.worklogs;
 
                 worklogs.forEach(function (worklog) {
+                    if (!!myEmailAddress && !!worklog.author && worklog.author.emailAddress !== myEmailAddress) { return; }
+
                     var diff = Math.floor(worklog.timeSpentSeconds / 60) - Math.floor(log.timeSpentInt / 60);
                     if (
                         // if date and month matches
@@ -315,8 +349,9 @@ function renderList() {
                         // if duration is within 4 minutes because JIRA is rounding worklog minutes :facepalm:
                         diff < 4 && diff > -4
                     ) {
-                        $('#result-' + log.id).text('OK').addClass('success');
-                        $('#input-' + log.id).removeAttr('checked');
+                        $('#result-' + log.id).text('OK').addClass('success').removeClass('info');
+                        $('#input-' + log.id).removeAttr('checked').attr('disabled', 'disabled');
+                        $("#comment-" + log.id).val(worklog.comment || '').attr('disabled', 'disabled');
                         log.submit = false;
                     }
                 })
